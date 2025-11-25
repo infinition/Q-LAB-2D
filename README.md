@@ -21,6 +21,7 @@ Watch an AI agent learn to navigate complex mazes using the Q-Learning algorithm
 Experience the simulator instantly: **[https://infinition.github.io/Q-LAB-2D/](https://infinition.github.io/Q-LAB-2D/)**
 
 -----
+<img width="2500" height="1267" alt="image" src="https://github.com/user-attachments/assets/bd147064-65eb-4074-8ecf-e7c61e693b91" />
 
 
 ### Quick Start
