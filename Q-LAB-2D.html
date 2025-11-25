@@ -1,0 +1,1493 @@
+<!DOCTYPE html>
+<html lang="fr">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="description" content="Simulateur Q-Learning interactif - Environnement Gridworld">
+    <meta name="theme-color" content="#0f172a">
+    <title>Q-Lab-2D</title>
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+
+    <style>
+        /* * DESIGN SYSTEM & VARIABLES
+         * Palette "Midnight Neon" pour un look pro et technique.
+         */
+        :root {
+            /* Couleurs de fond et surfaces */
+            --bg-app: #0b1121;          /* Fond principal très sombre */
+            --bg-panel: #151e32;        /* Panneaux latéraux */
+            --bg-glass: rgba(21, 30, 50, 0.85); /* Effet verre fumé */
+            
+            /* Couleurs sémantiques */
+            --primary: #6366f1;         /* Action principale (Indigo) */
+            --primary-glow: rgba(99, 102, 241, 0.4);
+            --success: #10b981;         /* Succès / Start (Emerald) */
+            --danger: #ef4444;          /* Echec / Danger (Red) */
+            --warning: #f59e0b;         /* Alertes (Amber) */
+            --info: #3b82f6;            /* Information (Blue) */
+            
+            /* Éléments d'interface */
+            --text-main: #f1f5f9;       /* Texte principal */
+            --text-muted: #94a3b8;      /* Texte secondaire */
+            --border: 1px solid rgba(255, 255, 255, 0.08);
+            --border-active: 1px solid rgba(99, 102, 241, 0.5);
+            
+            /* Utilitaires */
+            --radius-sm: 6px;
+            --radius-md: 8px;
+            --radius-lg: 12px;
+            --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.5), 0 2px 4px -1px rgba(0, 0, 0, 0.3);
+            --font-ui: 'Inter', system-ui, sans-serif;
+            --font-code: 'JetBrains Mono', monospace;
+        }
+
+        /* Reset & Base */
+        * { box-sizing: border-box; touch-action: manipulation; -webkit-tap-highlight-color: transparent; user-select: none; }
+        
+        body {
+            margin: 0;
+            font-family: var(--font-ui);
+            background-color: var(--bg-app);
+            /* Subtil gradient de fond pour la profondeur */
+            background-image: radial-gradient(circle at 100% 0%, #1e293b 0%, var(--bg-app) 50%);
+            color: var(--text-main);
+            height: 100vh;
+            width: 100vw;
+            overflow: hidden;
+            display: flex;
+        }
+
+        /* --- SIDEBAR (Panneau de configuration) --- */
+        #sidebar {
+            width: 340px;
+            background: var(--bg-panel);
+            border-right: var(--border);
+            display: flex;
+            flex-direction: column;
+            transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), margin 0.3s ease;
+            position: relative;
+            z-index: 1000;
+            flex-shrink: 0;
+            box-shadow: 4px 0 24px rgba(0,0,0,0.2);
+        }
+
+        #sidebar.collapsed { transform: translateX(-340px); margin-right: -340px; }
+
+        .sidebar-header {
+            padding: 16px 20px;
+            border-bottom: var(--border);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            background: rgba(0,0,0,0.2);
+        }
+
+        .logo {
+            font-weight: 800; font-size: 1.1rem; letter-spacing: -0.5px; color: var(--text-main);
+            display: flex; align-items: center; gap: 10px;
+        }
+        
+        .version-tag {
+            font-family: var(--font-code); font-size: 0.6rem; 
+            background: var(--primary); color: white; 
+            padding: 2px 6px; border-radius: 4px; font-weight: 700;
+        }
+
+        .sidebar-content {
+            padding: 20px;
+            overflow-y: auto;
+            overflow-x: hidden;
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 24px;
+            padding-bottom: 100px;
+        }
+
+        /* Groupes de contrôles */
+        .param-section {
+            border-top: 1px solid rgba(255, 255, 255, 0.05);
+            padding-top: 16px;
+        }
+
+        .param-title {
+            font-size: 0.7rem; text-transform: uppercase; color: var(--primary);
+            letter-spacing: 1.2px; margin-bottom: 12px; font-weight: 700;
+        }
+
+        .control-group label {
+            display: flex; justify-content: space-between; align-items: center;
+            font-size: 0.85rem; margin-bottom: 8px; color: #cbd5e1; font-weight: 500;
+        }
+
+        .control-val { color: var(--primary); font-family: var(--font-code); font-size: 0.85rem; }
+
+        /* Inputs Range Customisés */
+        input[type="range"] {
+            -webkit-appearance: none; width: 100%; height: 4px;
+            background: rgba(255, 255, 255, 0.1); border-radius: 2px; outline: none;
+            transition: background 0.2s;
+        }
+        input[type="range"]:hover { background: rgba(255, 255, 255, 0.2); }
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none; width: 16px; height: 16px;
+            background: var(--text-main); border-radius: 50%; cursor: pointer;
+            box-shadow: 0 0 0 2px var(--bg-app); border: 1px solid var(--text-muted);
+            transition: transform 0.1s, box-shadow 0.2s;
+        }
+        input[type="range"]::-webkit-slider-thumb:hover { transform: scale(1.1); box-shadow: 0 0 0 4px var(--primary-glow); border-color: var(--primary); }
+        
+        /* Spécifique vitesse */
+        #inp-speed::-webkit-slider-thumb { background: var(--success); border-color: var(--success); }
+
+        /* Tooltips sidebar */
+        .sb-info { margin-left: 6px; color: var(--text-muted); cursor: help; font-size: 0.9em; position: relative; }
+        .sb-info:hover { color: var(--primary); }
+        .sb-tooltip {
+            visibility: hidden; position: absolute; top: 100%; left: 0; width: 220px;
+            background: #0f172a; border: 1px solid rgba(255,255,255,0.15);
+            color: var(--text-main); padding: 10px; border-radius: var(--radius-sm);
+            font-size: 0.75rem; font-weight: 400; line-height: 1.4; box-shadow: var(--shadow);
+            z-index: 99999; opacity: 0; transform: translateY(5px); transition: 0.2s; pointer-events: none;
+        }
+        .sb-info:hover .sb-tooltip { visibility: visible; opacity: 1; transform: translateY(5px); }
+
+        /* --- ZONE PRINCIPALE --- */
+        #main-area {
+            flex: 1; display: flex; flex-direction: column; position: relative;
+            height: 100%; overflow: visible; background: radial-gradient(circle at center, #131c2e 0%, #0b1121 100%);
+        }
+
+        /* Barre supérieure (Toolbar) */
+        .top-bar {
+            height: 56px; flex-shrink: 0; display: flex; align-items: center; justify-content: space-between;
+            padding: 0 20px; border-bottom: var(--border); background: var(--bg-glass);
+            backdrop-filter: blur(12px); z-index: 40;
+        }
+
+        .toggle-btn {
+            background: transparent; border: 1px solid rgba(255,255,255,0.1); color: var(--text-muted);
+            width: 36px; height: 36px; border-radius: var(--radius-sm); cursor: pointer;
+            display: grid; place-items: center; transition: all 0.2s;
+        }
+        .toggle-btn:hover { color: var(--text-main); border-color: rgba(255,255,255,0.3); background: rgba(255,255,255,0.05); }
+
+        /* Contrôles de lecture */
+        .playback {
+            display: flex; gap: 8px; background: rgba(0,0,0,0.3); padding: 4px 6px;
+            border-radius: var(--radius-md); border: var(--border);
+        }
+        .pb-btn {
+            width: 34px; height: 34px; border-radius: var(--radius-sm); border: none;
+            background: transparent; color: var(--text-muted); cursor: pointer;
+            font-size: 0.9rem; transition: all 0.2s; display: flex; align-items: center; justify-content: center;
+        }
+        .pb-btn:hover { background: rgba(255,255,255,0.1); color: white; }
+        .pb-btn.play { background: rgba(16, 185, 129, 0.15); color: var(--success); border: 1px solid rgba(16, 185, 129, 0.3); }
+        .pb-btn.play:hover { background: var(--success); color: white; }
+        .pb-btn.play.running { background: rgba(239, 68, 68, 0.15); color: var(--danger); border-color: rgba(239, 68, 68, 0.3); }
+        .pb-btn.play.running:hover { background: var(--danger); color: white; }
+
+        /* --- HUD & STATS --- */
+        #hud-container {
+            background: var(--bg-panel); border-bottom: var(--border);
+            display: flex; flex-direction: column; flex-shrink: 0;
+            position: relative; z-index: 30; transition: all 0.3s ease;
+        }
+
+        .hud-stats-bar {
+            display: grid; grid-template-columns: repeat(6, 1fr) auto;
+            align-items: center; padding: 10px 20px; background: rgba(0,0,0,0.2);
+            font-size: 0.8rem; gap: 15px;
+        }
+
+        .stat-item { display: flex; flex-direction: column; align-items: center; justify-content: center; line-height: 1.2; }
+        .stat-label { font-size: 0.65rem; color: var(--text-muted); text-transform: uppercase; font-weight: 600; letter-spacing: 0.5px; }
+        .stat-val { font-family: var(--font-code); font-weight: 700; color: white; font-size: 0.9rem; }
+        .stat-val.green { color: var(--success); }
+
+        .hud-graph-area {
+            height: 180px; padding: 10px 20px; transition: height 0.3s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.3s ease;
+            overflow: hidden; display: flex; flex-direction: column;
+        }
+        #hud-container.collapsed .hud-graph-area { height: 0; padding: 0; opacity: 0; }
+
+        .graph-header {
+            display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;
+            padding-bottom: 8px; border-bottom: 1px solid rgba(255,255,255,0.05);
+        }
+        .graph-nav-btn {
+            background: rgba(255,255,255,0.05); border: none; color: white; width: 24px; height: 24px;
+            border-radius: 4px; cursor: pointer; display: flex; align-items: center; justify-content: center;
+        }
+        .graph-nav-btn:hover { background: var(--primary); }
+
+        /* --- VISUALISATION MATHEMATIQUE (Bellman) --- */
+        #math-display {
+            position: absolute; bottom: 60px; /* Ajusté pour éviter overlap toolbar */
+            background: rgba(15, 23, 42, 0.9); backdrop-filter: blur(8px);
+            padding: 8px 16px; border-radius: var(--radius-md);
+            font-family: var(--font-code); font-size: 0.7rem; color: var(--text-main);
+            border: var(--border); border-left: 2px solid var(--primary);
+            box-shadow: var(--shadow); z-index: 3000;
+            opacity: 0; transition: opacity 0.3s, transform 0.3s; transform: translateY(10px);
+            pointer-events: none; /* Interactif seulement si visible */
+        }
+        #math-display.visible { opacity: 1; transform: translateY(0); pointer-events: auto; }
+        
+        .math-tooltip {
+            visibility: hidden; position: absolute; bottom: 100%; left: 0; margin-bottom: 10px;
+            width: 300px; background: var(--bg-panel); border: 1px solid var(--primary);
+            padding: 12px; border-radius: var(--radius-md); box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+            font-family: var(--font-ui); font-size: 0.75rem; color: #e2e8f0; opacity: 0;
+            transform: translateY(5px); transition: all 0.2s ease; z-index: 4000; pointer-events: none;
+        }
+        #math-display:hover .math-tooltip { visibility: visible; opacity: 1; transform: translateY(0); }
+        
+        .mt-row { display: flex; justify-content: space-between; margin-bottom: 4px; padding-bottom: 4px; border-bottom: 1px solid rgba(255,255,255,0.05); }
+        .mt-key { font-weight: 600; }
+        .mt-desc { color: var(--text-muted); font-size: 0.7rem; margin-top: 2px; font-style: italic; }
+
+        /* --- SLIDERS TACTILES --- */
+        .touch-strip {
+            display: flex; gap: 12px; padding: 10px 20px; height: 50px; flex-shrink: 0;
+            justify-content: center; align-items: center; z-index: 20;
+        }
+        .touch-slider-container {
+            flex: 1; height: 100%; background: rgba(0,0,0,0.3); border-radius: var(--radius-md);
+            position: relative; overflow: hidden; border: var(--border); touch-action: none; cursor: ew-resize;
+        }
+        .ts-fill {
+            position: absolute; top: 0; left: 0; height: 100%; background: var(--primary);
+            opacity: 0.3; transition: width 0.05s linear; pointer-events: none;
+        }
+        .ts-label {
+            position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center;
+            font-size: 0.7rem; font-weight: 700; color: white; text-shadow: 0 1px 2px black; pointer-events: none;
+        }
+        .ts-val-disp { font-family: var(--font-code); font-size: 0.9em; margin-top: 2px; opacity: 0.9; }
+        
+        /* Couleurs spécifiques sliders */
+        #ts-speed .ts-fill { background: var(--success); }
+        #ts-epsilon .ts-fill { background: var(--warning); }
+        #ts-alpha .ts-fill { background: #ec4899; } /* Pink */
+        #ts-gamma .ts-fill { background: var(--primary); }
+
+        /* --- GRID STAGE --- */
+        #sim-stage {
+            flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center;
+            position: relative; overflow: hidden; padding: 20px; width: 100%;
+        }
+
+        #grid {
+            display: grid; gap: 1px; padding: 4px;
+            background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.1);
+            border-radius: var(--radius-lg); box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+            touch-action: none;
+            width: 100%; max-width: 60vh; aspect-ratio: 1 / 1; /* Carré parfait */
+            position: relative; cursor: crosshair;
+        }
+
+        .cell {
+            background: rgba(30, 41, 59, 0.5); border-radius: 2px; position: relative;
+            overflow: hidden; display: flex; justify-content: center; align-items: center;
+            transition: background 0.1s;
+        }
+
+        /* Types de cellules */
+        .cell.obstacle {
+            background: repeating-linear-gradient(45deg, #1e293b, #1e293b 5px, #334155 5px, #334155 10px);
+            box-shadow: inset 0 0 10px black; border: 1px solid rgba(255,255,255,0.05);
+        }
+        .cell.goal { background: rgba(16, 185, 129, 0.1); }
+        .cell.goal::after {
+            content: ''; position: absolute; width: 50%; height: 50%;
+            background: var(--success); border-radius: 50%;
+            box-shadow: 0 0 15px var(--success); animation: pulse 2s infinite;
+        }
+        .cell.start { border: 2px dashed var(--info); background: rgba(59, 130, 246, 0.1); }
+        .cell.mud { background: #451a03; border: 2px solid #78350f; opacity: 0.9; }
+        .cell.ice { background: rgba(6, 182, 212, 0.15); border: 1px solid rgba(6, 182, 212, 0.4); }
+        .cell.portal { background: rgba(139, 92, 246, 0.2); }
+        .cell.portal::after {
+            content: ''; position: absolute; width: 60%; height: 60%;
+            border: 2px solid #a78bfa; border-radius: 50%;
+            animation: spin 4s linear infinite;
+        }
+
+        /* Agent */
+        #agent {
+            position: absolute; z-index: 100;
+            background: white; border: 2px solid var(--primary);
+            border-radius: 50%; box-shadow: 0 0 20px var(--primary);
+            pointer-events: none; transition: all 0.1s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        /* Canvas Path */
+        #path-canvas {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            pointer-events: none; z-index: 90; opacity: 0.8;
+        }
+
+        /* Visualisation Q-Values (Overlay) */
+        .q-ov {
+            position: absolute; inset: 0; pointer-events: none;
+            display: grid; grid-template: 1fr 1fr 1fr / 1fr 1fr 1fr;
+        }
+        .qv { display: flex; align-items: center; justify-content: center; font-size: 8px; font-family: var(--font-code); color: rgba(255,255,255,0.6); }
+        .qv.u { grid-area: 1/2/2/3; } .qv.d { grid-area: 3/2/4/3; }
+        .qv.l { grid-area: 2/1/3/2; } .qv.r { grid-area: 2/3/3/4; }
+        .policy-arrow { position: absolute; color: rgba(255,255,255,0.7); font-size: 12px; }
+
+        /* --- TOOLBAR FLOTTANTE --- */
+        .toolbar {
+            position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%);
+            background: var(--bg-panel); padding: 4px 6px; border-radius: 50px;
+            border: var(--border-active); display: flex; gap: 8px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.5); z-index: 60;
+        }
+        
+        .tool-btn {
+            background: transparent; border: none; color: var(--text-muted);
+            width: 40px; height: 40px; border-radius: 50%; cursor: pointer;
+            font-size: 1.1rem; transition: all 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+        .tool-btn:hover { color: white; transform: scale(1.1); }
+        .tool-btn.active { background: var(--primary); color: white; box-shadow: 0 0 15px var(--primary-glow); }
+        
+        .sep { width: 1px; background: rgba(255,255,255,0.1); margin: 4px 2px; }
+
+        /* --- POPUPS & EDITOR --- */
+        #goal-editor {
+            position: fixed; background: rgba(15, 23, 42, 0.98);
+            border: 1px solid var(--success); padding: 12px; border-radius: var(--radius-md);
+            display: none; flex-direction: column; gap: 8px; z-index: 2000;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.8); backdrop-filter: blur(5px); width: 180px;
+        }
+        #goal-editor label { font-size: 0.7rem; color: var(--success); font-weight: 700; display: flex; justify-content: space-between; }
+        
+        #toast {
+            position: absolute; bottom: 90px; left: 50%; transform: translateX(-50%);
+            background: var(--bg-panel); border: 1px solid var(--primary);
+            color: white; padding: 8px 16px; border-radius: 30px;
+            font-size: 0.85rem; pointer-events: none; opacity: 0;
+            transition: opacity 0.3s; z-index: 50000; box-shadow: 0 5px 20px rgba(0,0,0,0.5);
+            font-weight: 500; white-space: nowrap; display: flex; gap: 8px; align-items: center;
+        }
+        #toast.visible { opacity: 1; }
+
+        /* Animations */
+        @keyframes pulse { 0% { transform: scale(1); opacity: 0.8; } 50% { transform: scale(1.1); opacity: 1; } 100% { transform: scale(1); opacity: 0.8; } }
+        @keyframes spin { 100% { transform: rotate(360deg); } }
+
+        /* --- RESPONSIVE MOBILE --- */
+        @media (max-width: 900px) {
+            body { flex-direction: column; }
+            #main-area { order: 1; flex: 1; }
+            #sim-stage { padding-bottom: 80px; } /* Espace pour toolbar */
+            
+            #sidebar {
+                order: 2; width: 100%; height: 50vh; position: absolute; bottom: 0;
+                transform: translateY(0); margin-right: 0; border-right: none;
+                border-top: 2px solid var(--primary); box-shadow: 0 -10px 40px rgba(0,0,0,0.7);
+            }
+            #sidebar.collapsed { transform: translateY(100%); margin-bottom: 0; }
+            
+            .hud-stats-bar { grid-template-columns: repeat(3, 1fr); font-size: 0.7rem; gap: 8px; }
+            .graph-toggle { grid-column: span 3; justify-self: center; width: 100%; }
+        }
+    </style>
+</head>
+
+<body>
+
+    <aside id="sidebar">
+        <div class="sidebar-header">
+            <div class="logo">
+                <i class="fas fa-network-wired" style="color:var(--primary)"></i> 
+                Q-LAB <span class="version-tag">V16.RC</span>
+            </div>
+            <button class="toggle-btn" onclick="app.ui.toggleSidebar()" aria-label="Fermer le menu">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        
+        <div class="sidebar-content">
+            <div class="control-group">
+                <label>
+                    <div style="display:flex;align-items:center;">
+                        <span><i class="fas fa-bolt" style="color:var(--warning); margin-right:6px;"></i> Vitesse Simulation</span>
+                    </div>
+                    <span class="control-val" id="txt-speed">50ms</span>
+                </label>
+                <input type="range" id="inp-speed" min="0" max="100" value="60" oninput="app.config.updateFromInput(this)">
+            </div>
+
+            <div class="param-section">
+                <div class="param-title">Cerveau de l'Agent</div>
+                
+                <div class="control-group">
+                    <label>
+                        <div>
+                            <span>Exploration (ε)</span>
+                            <i class="fas fa-question-circle sb-info"><div class="sb-tooltip">Probabilité d'agir au hasard. 1.0 = Chaos, 0.0 = Robot strict.</div></i>
+                        </div>
+                        <span class="control-val" id="txt-epsilon">0.1</span>
+                    </label>
+                    <input type="range" id="inp-epsilon" min="0" max="1" step="0.01" value="0.1" oninput="app.config.updateFromInput(this)">
+                </div>
+
+                <div class="control-group">
+                    <label>
+                        <div>
+                            <span>Apprentissage (α)</span>
+                            <i class="fas fa-question-circle sb-info"><div class="sb-tooltip">Vitesse d'intégration des nouvelles informations.</div></i>
+                        </div>
+                        <span class="control-val" id="txt-alpha">0.1</span>
+                    </label>
+                    <input type="range" id="inp-alpha" min="0" max="1" step="0.01" value="0.1" oninput="app.config.updateFromInput(this)">
+                </div>
+
+                <div class="control-group">
+                    <label>
+                        <div>
+                            <span>Vision Futur (γ)</span>
+                            <i class="fas fa-question-circle sb-info"><div class="sb-tooltip">Importance des récompenses futures. 0 = Impulsif, 1 = Stratège.</div></i>
+                        </div>
+                        <span class="control-val" id="txt-gamma">0.9</span>
+                    </label>
+                    <input type="range" id="inp-gamma" min="0" max="1" step="0.01" value="0.9" oninput="app.config.updateFromInput(this)">
+                </div>
+                
+                <div class="control-group">
+                    <label>
+                        <div>
+                            <span>Décroissance ε</span>
+                            <i class="fas fa-question-circle sb-info"><div class="sb-tooltip">Réduction automatique de l'exploration à chaque épisode.</div></i>
+                        </div>
+                        <span class="control-val" id="txt-decay">1.0</span>
+                    </label>
+                    <input type="range" id="inp-decay" min="0.90" max="1.0" step="0.001" value="1.0" oninput="app.config.updateFromInput(this)">
+                </div>
+            </div>
+
+            <div class="param-section">
+                <div class="param-title">Environnement & Règles</div>
+                
+                <div class="control-group">
+                    <label>Max Pas / Épisode <span class="control-val" id="txt-maxsteps">100</span></label>
+                    <input type="range" id="inp-maxsteps" min="10" max="500" step="10" value="100" oninput="app.config.updateFromInput(this)">
+                </div>
+                
+                <div class="control-group">
+                    <label>Coût de Vie (Energie) <span class="control-val" id="txt-living">-1</span></label>
+                    <input type="range" id="inp-living" min="-10" max="0" step="1" value="-1" oninput="app.config.updateFromInput(this)">
+                </div>
+
+                <div class="control-group">
+                    <label>Pénalité Mur <span class="control-val" id="txt-wallpen">-5</span></label>
+                    <input type="range" id="inp-wallpen" min="-50" max="0" step="5" value="-5" oninput="app.config.updateFromInput(this)">
+                </div>
+            </div>
+
+            <div class="param-section">
+                <div class="control-group">
+                    <label>Taille Grille <span class="control-val" id="txt-size">10x10</span></label>
+                    <input type="range" min="4" max="50" value="10" onchange="app.core.resize(this.value)">
+                </div>
+                
+                <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px; margin-top:15px;">
+                    <button class="toggle-btn" style="width:100%; gap:8px;" onclick="app.io.export()">
+                        <i class="fas fa-download"></i> Save
+                    </button>
+                    <button class="toggle-btn" style="width:100%; gap:8px;" onclick="document.getElementById('file-imp').click()">
+                        <i class="fas fa-upload"></i> Load
+                    </button>
+                    <input type="file" id="file-imp" hidden onchange="app.io.import(this)">
+                </div>
+            </div>
+        </div>
+    </aside>
+
+    <section id="main-area">
+        
+        <div class="top-bar">
+            <button class="toggle-btn" onclick="app.ui.toggleSidebar()" title="Paramètres"><i class="fas fa-sliders-h"></i></button>
+            
+            <div class="playback">
+                <button class="pb-btn" onclick="app.core.reset(false)" title="Reset Position"><i class="fas fa-backward"></i></button>
+                <button id="btn-play" class="pb-btn play" onclick="app.core.toggleRun()" title="Démarrer/Pause"><i class="fas fa-play"></i></button>
+                <button class="pb-btn" onclick="app.core.step()" title="Pas à pas"><i class="fas fa-step-forward"></i></button>
+                <div style="width:1px; background:rgba(255,255,255,0.2); margin:0 5px;"></div>
+                <button class="pb-btn" onclick="app.core.resetLearning()" title="Reset Cerveau"><i class="fas fa-brain"></i></button>
+                <button class="pb-btn" onclick="app.core.fullReset()" title="Reset Total"><i class="fas fa-trash-alt"></i></button>
+            </div>
+            
+            <div style="width:36px;"></div> </div>
+
+        <div id="hud-container">
+            <div class="hud-stats-bar">
+                <div class="stat-item"><span class="stat-label">Épisodes</span><span class="stat-val" id="val-ep">0</span></div>
+                <div class="stat-item"><span class="stat-label">Pas Actuel</span><span class="stat-val" id="val-steps">0</span></div>
+                <div class="stat-item"><span class="stat-label">Moy. Pas</span><span class="stat-val" id="val-avg-steps">0</span></div>
+                <div class="stat-item"><span class="stat-label">Succès</span><span class="stat-val green" id="val-success">0%</span></div>
+                <div class="stat-item"><span class="stat-label">Score</span><span class="stat-val" id="val-reward">0</span></div>
+                <div class="stat-item"><span class="stat-label">Moy. Score</span><span class="stat-val" id="val-avg-reward">0</span></div>
+                
+                <button class="graph-toggle toggle-btn" style="width:auto; padding:0 10px;" onclick="app.ui.toggleGraph()">
+                    <i class="fas fa-chart-line"></i>
+                </button>
+            </div>
+            
+            <div class="hud-graph-area">
+                <div class="graph-header">
+                    <div class="graph-title" style="display:flex; align-items:center; gap:10px;">
+                        <button class="graph-nav-btn" onclick="app.chart.prevMetric()"><i class="fas fa-chevron-left"></i></button>
+                        <span id="lbl-metric" style="font-weight:700; color:var(--text-main);">Score</span>
+                        <button class="graph-nav-btn" onclick="app.chart.nextMetric()"><i class="fas fa-chevron-right"></i></button>
+                    </div>
+                    <div style="display:flex; gap:10px; align-items:center;">
+                        <span style="font-size:0.7rem; color:var(--text-muted);">Lissage</span>
+                        <input type="range" min="1" max="50" value="1" style="width:60px;" oninput="app.chart.updateSmoothing(this.value)">
+                    </div>
+                </div>
+                <div style="flex:1; position:relative; min-height:0;"><canvas id="chart"></canvas></div>
+            </div>
+        </div>
+
+        <div class="touch-strip">
+            <div class="touch-slider-container" id="ts-speed">
+                <div class="ts-fill" style="width: 60%;"></div>
+                <div class="ts-label">⚡ Vitesse <span class="ts-val-disp">60%</span></div>
+            </div>
+            <div class="touch-slider-container" id="ts-epsilon">
+                <div class="ts-fill" style="width: 10%;"></div>
+                <div class="ts-label">🎲 Epsilon <span class="ts-val-disp">0.10</span></div>
+            </div>
+        </div>
+
+        <div id="sim-stage">
+            <div id="grid">
+                <canvas id="path-canvas"></canvas>
+                <div id="agent"></div>
+            </div>
+
+            <div id="goal-editor">
+                <label>RÉCOMPENSE <span id="ge-val">100</span></label>
+                <input type="range" id="ge-slider" min="10" max="1000" step="10" oninput="app.tools.updateGoalValue(this.value)">
+            </div>
+
+            <div class="toolbar">
+                <button class="tool-btn active" id="t-view" onclick="app.tools.setTool('view')" title="Sélection / Info"><i class="fas fa-mouse-pointer"></i></button>
+                <button class="tool-btn" id="t-policy" onclick="app.ui.toggleViewMode('policy')" title="Vue Politique" style="color:#facc15"><i class="fas fa-compass"></i></button>
+                <button class="tool-btn" id="t-heatmap" onclick="app.ui.toggleViewMode('heatmap')" title="Vue Chaleur" style="color:#f87171"><i class="fas fa-fire"></i></button>
+                
+                <div class="sep"></div>
+                
+                <button class="tool-btn" id="t-wall" onclick="app.tools.setTool('wall')" title="Mur"><i class="fas fa-square"></i></button>
+                <button class="tool-btn" id="t-mud" onclick="app.tools.setTool('mud')" title="Boue (Ralentit)" style="color:#8d6e63"><i class="fas fa-water"></i></button>
+                <button class="tool-btn" id="t-ice" onclick="app.tools.setTool('ice')" title="Glace (Glisse)" style="color:#22d3ee"><i class="fas fa-snowflake"></i></button>
+                <button class="tool-btn" id="t-portal" onclick="app.tools.setTool('portal')" title="Portail" style="color:#c084fc"><i class="fas fa-dungeon"></i></button>
+                
+                <div class="sep"></div>
+                
+                <button class="tool-btn" id="t-goal" onclick="app.tools.setTool('goal')" title="Objectif"><i class="fas fa-bullseye"></i></button>
+                <button class="tool-btn" id="t-start" onclick="app.tools.setTool('start')" title="Départ"><i class="fas fa-flag"></i></button>
+                <button class="tool-btn" id="t-eraser" onclick="app.tools.setTool('eraser')" title="Gomme"><i class="fas fa-eraser"></i></button>
+            </div>
+            
+            <div id="math-display"></div>
+            <div id="toast"><i class="fas fa-info-circle"></i> <span>Ready</span></div>
+        </div>
+
+        <div class="touch-strip">
+            <div class="touch-slider-container" id="ts-alpha">
+                <div class="ts-fill" style="width: 10%;"></div>
+                <div class="ts-label">🧠 Alpha <span class="ts-val-disp">0.10</span></div>
+            </div>
+            <div class="touch-slider-container" id="ts-gamma">
+                <div class="ts-fill" style="width: 90%;"></div>
+                <div class="ts-label">🔮 Gamma <span class="ts-val-disp">0.90</span></div>
+            </div>
+        </div>
+
+    </section>
+
+    <script>
+        /**
+         * Namespace principal de l'application Q-Lab.
+         * Structure modulaire pour une maintenance aisée.
+         */
+        const app = {
+            // Configuration par défaut et état global
+            config: {
+                size: 10, epsilon: 0.1, alpha: 0.1, gamma: 0.9, epsilonDecay: 1.0,
+                maxSteps: 100, livingPenalty: -1, wallPenalty: -5, goalReward: 100,
+                delay: 50, turboSteps: 1, isTurbo: false,
+                
+                /** Met à jour la configuration depuis les inputs DOM */
+                updateFromInput(el) {
+                    const id = el.id;
+                    const valStr = el.value;
+                    let val = parseFloat(valStr);
+
+                    // Logique spécifique vitesse/turbo
+                    if (id === 'inp-speed') {
+                        const intVal = parseInt(valStr);
+                        if (intVal > 85) {
+                            app.config.isTurbo = true;
+                            app.config.turboSteps = Math.floor(Math.pow((intVal - 85), 1.5) * 2);
+                            document.getElementById('txt-speed').innerText = `TURBO x${app.config.turboSteps}`;
+                        } else {
+                            app.config.isTurbo = false;
+                            const inv = 85 - intVal;
+                            app.config.delay = Math.floor(Math.pow(inv, 1.5));
+                            document.getElementById('txt-speed').innerText = app.config.delay + "ms";
+                        }
+                        app.ui.updateTactile('speed', intVal);
+                        return;
+                    }
+
+                    // Mapping des paramètres
+                    const map = {
+                        'inp-epsilon': 'epsilon', 'inp-alpha': 'alpha', 'inp-gamma': 'gamma', 'inp-decay': 'epsilonDecay',
+                        'inp-maxsteps': 'maxSteps', 'inp-living': 'livingPenalty', 'inp-wallpen': 'wallPenalty'
+                    };
+
+                    if (map[id]) {
+                        app.config[map[id]] = val;
+                        const labelId = id.replace('inp-', 'txt-');
+                        document.getElementById(labelId).innerText = val;
+                        app.ui.updateTactile(map[id], val);
+                    }
+                }
+            },
+
+            // État de la simulation
+            state: {
+                q: {}, // Table Q { "x,y": [u,r,d,l] }
+                obstacles: new Set(), goals: new Map(), mud: new Set(), ice: new Set(), portals: new Set(),
+                start: { x: 0, y: 9 }, pos: { x: 0, y: 9 }, lastAction: null,
+                episode: 0, steps: 0, reward: 0, wins: 0, running: false, 
+                history: [], visits: {},
+                tool: 'view', viewMode: 'q' // 'q', 'policy', 'heatmap'
+            },
+
+            /**
+             * Initialisation de l'application.
+             * Setup des événements et du rendu initial.
+             */
+            init() {
+                this.core.resize(10);
+                this.chart.init();
+                this.ui.setupTouchSliders();
+                
+                // Raccourcis clavier
+                document.addEventListener('keydown', e => { if (e.code === 'Space') app.core.toggleRun(); });
+                
+                // Gestion de la peinture sur la grille (Mouse & Touch)
+                window.addEventListener('mouseup', () => app.ui.isPainting = false);
+                window.addEventListener('touchend', () => app.ui.isPainting = false);
+                window.addEventListener('resize', () => app.ui.updatePathCanvas());
+
+                // Fermeture des popups au clic extérieur
+                document.addEventListener('mousedown', (e) => {
+                    if (!e.target.closest('#grid') && !e.target.closest('#goal-editor')) app.tools.closeGoalEditor();
+                });
+                
+                // Init des valeurs UI
+                document.querySelectorAll('input[type="range"]').forEach(i => app.config.updateFromInput(i));
+            },
+
+            // --- MODULE CORE : Logique algorithmique ---
+            core: {
+                timer: null,
+                animationId: null,
+
+                /** Redimensionne la grille et reset tout */
+                resize(n) {
+                    n = parseInt(n);
+                    app.config.size = n;
+                    document.getElementById('txt-size').innerText = `${n}x${n}`;
+                    
+                    app.state.q = {};
+                    app.state.obstacles.clear(); app.state.goals.clear();
+                    app.state.mud.clear(); app.state.ice.clear(); app.state.portals.clear();
+                    app.state.visits = {};
+                    
+                    // Setup par défaut : Start en bas à gauche, Goal en haut à droite (adapté à la taille)
+                    app.state.start = { x: 0, y: n - 1 };
+                    app.state.goals.set(`${n - 1},0`, app.config.goalReward);
+                    
+                    app.ui.renderGrid();
+                    this.fullReset();
+                },
+
+                /** Effectue une étape de simulation (Logique + Mise à jour partielle) */
+                step() {
+                    if (!app.state.running) return;
+
+                    if (app.config.isTurbo) {
+                        // Mode Turbo : Calculs en boucle sans rendu intermédiaire
+                        for (let i = 0; i < app.config.turboSteps; i++) {
+                            if (this.logicStep()) break; // Fin d'épisode
+                        }
+                        app.ui.moveAgentVisual();
+                        app.ui.updateStats();
+                        this.animationId = requestAnimationFrame(() => this.step());
+                    } else {
+                        // Mode Normal : Rendu à chaque pas
+                        this.logicStep();
+                        app.ui.updateSingleCellQ(app.state.pos.x, app.state.pos.y);
+                        app.ui.moveAgentVisual();
+                        app.ui.updateStats();
+                        this.timer = setTimeout(() => this.step(), app.config.delay);
+                    }
+                },
+
+                /** Cœur de l'algorithme : Déplacement, Récompense, Mise à jour Q */
+                logicStep() {
+                    const { x, y } = app.state.pos;
+                    const k = `${x},${y}`;
+
+                    // Tracking visites
+                    app.state.visits[k] = (app.state.visits[k] || 0) + 1;
+                    if (!app.config.isTurbo) {
+                        const cell = document.getElementById(`c-${x}-${y}`);
+                        if (cell) cell.classList.add('visited');
+                    }
+
+                    // 1. Choix Action (Epsilon-Greedy)
+                    let action = this.chooseAction(k);
+
+                    // 2. Physique Environnementale
+                    // Glace : probabilité de glisser (continuer même direction)
+                    if (app.state.ice.has(k) && app.state.lastAction !== null) {
+                        if (Math.random() < 0.8) action = app.state.lastAction;
+                    }
+                    app.state.lastAction = action;
+
+                    // Calcul nouvelle position candidate
+                    let nx = x, ny = y;
+                    if (action === 0) ny--;      // Haut
+                    else if (action === 1) nx++; // Droite
+                    else if (action === 2) ny++; // Bas
+                    else if (action === 3) nx--; // Gauche
+
+                    // Détection Collision
+                    let hit = false;
+                    if (nx < 0 || ny < 0 || nx >= app.config.size || ny >= app.config.size || app.state.obstacles.has(`${nx},${ny}`)) {
+                        hit = true;
+                    }
+
+                    let nk = hit ? k : `${nx},${ny}`;
+
+                    // Logique Portail (Téléportation)
+                    if (!hit && app.state.portals.has(nk)) {
+                        const portals = Array.from(app.state.portals).filter(p => p !== nk);
+                        if (portals.length > 0) {
+                            const dest = portals[Math.floor(Math.random() * portals.length)];
+                            const [px, py] = dest.split(',').map(Number);
+                            nx = px; ny = py;
+                            nk = dest;
+                        }
+                    }
+
+                    // 3. Calcul Récompense (Reward)
+                    let r = app.config.livingPenalty;
+                    let done = false;
+
+                    if (app.state.goals.has(nk)) {
+                        r = app.state.goals.get(nk);
+                        done = true;
+                    } else if (hit) {
+                        r = app.config.wallPenalty;
+                    } else if (app.state.mud.has(nk)) {
+                        r = app.config.livingPenalty * 3; // Boue coûte plus cher
+                    }
+
+                    // 4. Mise à jour Q-Value (Bellman Equation)
+                    // Q(s,a) = Q(s,a) + alpha * [R + gamma * max(Q(s',a')) - Q(s,a)]
+                    if (!app.state.q[k]) app.state.q[k] = [0,0,0,0]; // Init safe
+                    if (!app.state.q[nk]) app.state.q[nk] = [0,0,0,0];
+
+                    const oldQ = app.state.q[k][action];
+                    const maxNext = Math.max(...app.state.q[nk]);
+                    const newVal = oldQ + app.config.alpha * (r + app.config.gamma * maxNext - oldQ);
+                    
+                    app.state.q[k][action] = newVal;
+
+                    // Affichage Mathématique (si lent)
+                    if (!app.config.isTurbo) app.ui.showMath(oldQ, r, maxNext, newVal);
+
+                    // Appliquer mouvement
+                    if (!hit) app.state.pos = { x: nx, y: ny };
+                    
+                    app.state.steps++;
+                    app.state.reward += r;
+
+                    // Vérification fin d'épisode
+                    if (done || app.state.steps >= app.config.maxSteps) {
+                        if (done) app.state.wins++;
+                        this.endEpisode(done);
+                        return true; // Stop pour ce cycle
+                    }
+                    return false;
+                },
+
+                chooseAction(k) {
+                    // Si état inconnu, init
+                    if (!app.state.q[k]) app.state.q[k] = [0,0,0,0];
+                    
+                    // Exploration
+                    if (Math.random() < app.config.epsilon) return Math.floor(Math.random() * 4);
+                    
+                    // Exploitation (Argmax)
+                    const qs = app.state.q[k];
+                    const max = Math.max(...qs);
+                    // Gère les égalités en choisissant au hasard parmi les meilleurs
+                    const candidates = [];
+                    qs.forEach((v, i) => { if(v === max) candidates.push(i); });
+                    return candidates[Math.floor(Math.random() * candidates.length)];
+                },
+
+                endEpisode(success) {
+                    app.state.episode++;
+                    
+                    // Historisation
+                    app.state.history.push({ 
+                        ep: app.state.episode, 
+                        r: app.state.reward, 
+                        s: app.state.steps, 
+                        w: success ? 1 : 0 
+                    });
+
+                    // Mise à jour Graphique (Throttle en Turbo)
+                    if (!app.config.isTurbo || app.state.episode % 20 === 0) app.chart.update();
+
+                    // Décroissance Epsilon
+                    app.config.epsilon = Math.max(0.01, app.config.epsilon * app.config.epsilonDecay);
+                    document.getElementById('inp-epsilon').value = app.config.epsilon;
+                    app.ui.updateTactile('epsilon', app.config.epsilon);
+                    document.getElementById('txt-epsilon').innerText = app.config.epsilon.toFixed(3);
+
+                    // Reset pour prochain épisode
+                    app.state.pos = { ...app.state.start };
+                    app.state.steps = 0;
+                    app.state.reward = 0;
+                    app.state.lastAction = null;
+
+                    // Nettoyage visuel partiel
+                    if (!app.config.isTurbo) {
+                        document.querySelectorAll('.visited').forEach(c => c.classList.remove('visited'));
+                        app.ui.updateCellVisuals();
+                    } else if (app.state.episode % 20 === 0) {
+                        app.ui.updateCellVisuals(); // Refresh périodique en turbo
+                    }
+                    
+                    if (!app.config.isTurbo || app.state.episode % 50 === 0) app.ui.drawBestPath();
+                },
+
+                // Commandes de contrôle
+                toggleRun() {
+                    app.state.running = !app.state.running;
+                    const btn = document.getElementById('btn-play');
+                    if (app.state.running) {
+                        btn.innerHTML = '<i class="fas fa-pause"></i>';
+                        btn.classList.add('running');
+                        this.step();
+                    } else {
+                        btn.innerHTML = '<i class="fas fa-play"></i>';
+                        btn.classList.remove('running');
+                        cancelAnimationFrame(this.animationId);
+                        clearTimeout(this.timer);
+                    }
+                },
+                reset(hard) {
+                    app.state.pos = { ...app.state.start };
+                    app.state.steps = 0;
+                    app.state.reward = 0;
+                    app.state.lastAction = null;
+                    document.querySelectorAll('.visited').forEach(c => c.classList.remove('visited'));
+                    app.ui.moveAgentVisual();
+                    app.ui.updateStats();
+                    app.ui.drawBestPath();
+                },
+                resetLearning() {
+                    this.stop();
+                    app.state.episode = 0; app.state.wins = 0; app.state.history = [];
+                    app.state.q = {}; app.state.visits = {};
+                    // Reset config params visual only if needed
+                    app.config.epsilon = parseFloat(document.getElementById('inp-epsilon').value);
+                    app.chart.reset();
+                    this.reset();
+                    app.ui.updateCellVisuals();
+                },
+                fullReset() {
+                    this.stop();
+                    app.state.obstacles.clear(); app.state.goals.clear();
+                    app.state.mud.clear(); app.state.ice.clear(); app.state.portals.clear();
+                    const n = app.config.size;
+                    app.state.start = { x: 0, y: n - 1 };
+                    app.state.goals.set(`${n - 1},0`, app.config.goalReward);
+                    this.resetLearning();
+                    app.ui.renderGrid();
+                },
+                stop() {
+                    app.state.running = false;
+                    cancelAnimationFrame(this.animationId);
+                    clearTimeout(this.timer);
+                    document.getElementById('btn-play').innerHTML = '<i class="fas fa-play"></i>';
+                    document.getElementById('btn-play').classList.remove('running');
+                }
+            },
+
+            // --- MODULE UI : Rendu et Interactions ---
+            ui: {
+                isPainting: false,
+                pathCanvas: null,
+
+                renderGrid() {
+                    const grid = document.getElementById('grid');
+                    grid.innerHTML = '<canvas id="path-canvas"></canvas><div id="agent"></div>';
+                    grid.style.gridTemplateColumns = `repeat(${app.config.size}, 1fr)`;
+                    grid.style.gridTemplateRows = `repeat(${app.config.size}, 1fr)`;
+
+                    this.pathCanvas = document.getElementById('path-canvas');
+                    this.updatePathCanvasSize();
+
+                    // Event delegation & Painting logic
+                    const handler = (e) => {
+                        e.stopPropagation();
+                        // Fermer éditeur goal si clic ailleurs
+                        if(e.target.id !== 'ge-slider') app.tools.closeGoalEditor();
+                        
+                        this.isPainting = true;
+                        this.handlePaintEvent(e);
+                    };
+
+                    grid.onmousedown = handler;
+                    grid.ontouchstart = handler;
+                    grid.onmousemove = (e) => { if (this.isPainting) this.handlePaintEvent(e); };
+                    grid.ontouchmove = (e) => { if (this.isPainting) this.handlePaintEvent(e); };
+
+                    const frag = document.createDocumentFragment();
+                    for (let y = 0; y < app.config.size; y++) {
+                        for (let x = 0; x < app.config.size; x++) {
+                            const cell = document.createElement('div');
+                            cell.className = 'cell';
+                            cell.id = `c-${x}-${y}`;
+                            // Overlay Q-Values (uniquement si grille petite pour perf)
+                            if (app.config.size <= 20) {
+                                cell.innerHTML = `<div class="q-ov"><span class="qv u" id="q-${x}-${y}-0"></span><span class="qv r" id="q-${x}-${y}-1"></span><span class="qv d" id="q-${x}-${y}-2"></span><span class="qv l" id="q-${x}-${y}-3"></span></div>`;
+                            }
+                            frag.appendChild(cell);
+                            if (!app.state.q[`${x},${y}`]) app.state.q[`${x},${y}`] = [0,0,0,0];
+                        }
+                    }
+                    grid.appendChild(frag);
+                    this.updateCellVisuals();
+                    this.moveAgentVisual();
+                    this.drawBestPath();
+                },
+
+                handlePaintEvent(e) {
+                    // Normalisation coordonnées Touch/Mouse
+                    let clientX, clientY;
+                    if (e.touches) {
+                        clientX = e.touches[0].clientX;
+                        clientY = e.touches[0].clientY;
+                    } else {
+                        clientX = e.clientX;
+                        clientY = e.clientY;
+                    }
+
+                    // Raycasting manuel simple
+                    const target = document.elementFromPoint(clientX, clientY);
+                    if (!target) return;
+                    
+                    const cell = target.closest('.cell');
+                    if (cell) {
+                        const [_, x, y] = cell.id.split('-');
+                        app.tools.applyTool(parseInt(x), parseInt(y));
+                    }
+                },
+
+                updateCellVisuals() {
+                    const maxVisits = Math.max(...Object.values(app.state.visits), 1);
+                    const isHeatmap = app.state.viewMode === 'heatmap';
+                    const isPolicy = app.state.viewMode === 'policy';
+
+                    document.querySelectorAll('.cell').forEach(c => {
+                        const [_, x, y] = c.id.split('-');
+                        const k = `${x},${y}`;
+                        
+                        // Reset classes de base
+                        c.className = 'cell';
+                        if (app.state.obstacles.has(k)) c.classList.add('obstacle');
+                        else if (app.state.goals.has(k)) c.classList.add('goal');
+                        else if (app.state.start.x == x && app.state.start.y == y) c.classList.add('start');
+                        else if (app.state.mud.has(k)) c.classList.add('mud');
+                        else if (app.state.ice.has(k)) c.classList.add('ice');
+                        else if (app.state.portals.has(k)) c.classList.add('portal');
+
+                        // Gestion Contenu dynamique (Arrows, Colors)
+                        if (!app.state.obstacles.has(k) && !app.state.goals.has(k)) {
+                            // Nettoyage arrows précédentes
+                            const existingArrow = c.querySelector('.policy-arrow');
+                            if(existingArrow) existingArrow.remove();
+
+                            if (isHeatmap) {
+                                const v = app.state.visits[k] || 0;
+                                const intensity = Math.min(v / maxVisits, 1) * 0.8;
+                                c.style.background = `rgba(248, 113, 113, ${intensity})`;
+                            } 
+                            else if (isPolicy) {
+                                const q = app.state.q[k] || [0,0,0,0];
+                                const max = Math.max(...q);
+                                if (Math.abs(max) > 0.1) {
+                                    const action = q.indexOf(max);
+                                    const icons = ['fa-arrow-up', 'fa-arrow-right', 'fa-arrow-down', 'fa-arrow-left'];
+                                    c.innerHTML += `<i class="fas ${icons[action]} policy-arrow"></i>`;
+                                }
+                                c.style.background = `rgba(255,255,255,0.02)`;
+                            } 
+                            else {
+                                // Mode Normal (Q-Color)
+                                const q = app.state.q[k] || [0,0,0,0];
+                                const max = Math.max(...q);
+                                if (max > 0.1) c.style.background = `rgba(16, 185, 129, ${Math.min(max / 100, 0.6)})`;
+                                else if (max < -0.1) c.style.background = `rgba(239, 68, 68, ${Math.min(Math.abs(max) / 20, 0.5)})`;
+                                else c.style.background = '';
+                                
+                                // Update textes valeurs
+                                if (app.config.size <= 20) {
+                                    for(let i=0; i<4; i++) {
+                                        const span = document.getElementById(`q-${x}-${y}-${i}`);
+                                        if(span) span.innerText = Math.abs(q[i]) > 0.1 ? Math.round(q[i]) : '';
+                                    }
+                                }
+                            }
+                        } else {
+                            c.style.background = '';
+                        }
+                    });
+                },
+
+                updateSingleCellQ(x, y) {
+                    if (app.config.size > 20 || app.state.viewMode !== 'q') return;
+                    const q = app.state.q[`${x},${y}`];
+                    if (!q) return;
+                    for (let i = 0; i < 4; i++) {
+                        const el = document.getElementById(`q-${x}-${y}-${i}`);
+                        if (el) el.innerText = Math.abs(q[i]) > 0.1 ? Math.round(q[i]) : '';
+                    }
+                },
+
+                moveAgentVisual() {
+                    const agent = document.getElementById('agent');
+                    const pct = 100 / app.config.size;
+                    const offset = (pct - (pct * 0.6)) / 2;
+                    // Transition fluide désactivée en Turbo
+                    agent.style.transition = app.config.isTurbo ? 'none' : 'all 0.1s cubic-bezier(0.22, 1, 0.36, 1)';
+                    agent.style.width = `${pct * 0.6}%`;
+                    agent.style.height = `${pct * 0.6}%`;
+                    agent.style.left = `${(app.state.pos.x * pct) + offset}%`;
+                    agent.style.top = `${(app.state.pos.y * pct) + offset}%`;
+                },
+
+                drawBestPath() {
+                    if (!this.pathCanvas) return;
+                    const ctx = this.pathCanvas.getContext('2d');
+                    ctx.clearRect(0, 0, this.pathCanvas.width, this.pathCanvas.height);
+
+                    const size = app.config.size;
+                    const w = this.pathCanvas.width / size;
+                    const h = this.pathCanvas.height / size;
+
+                    let cx = app.state.start.x, cy = app.state.start.y;
+                    ctx.beginPath();
+                    ctx.moveTo(cx * w + w/2, cy * h + h/2);
+
+                    const maxIter = size * size; // Sécurité boucle infinie
+                    let iter = 0;
+
+                    while(iter < maxIter) {
+                        const k = `${cx},${cy}`;
+                        if (app.state.goals.has(k)) break; // Arrivé
+
+                        const qs = app.state.q[k];
+                        if (!qs) break;
+                        const maxQ = Math.max(...qs);
+                        if (Math.abs(maxQ) < 0.1) break; // Pas assez d'info
+
+                        const action = qs.indexOf(maxQ);
+                        let nx = cx, ny = cy;
+                        if (action === 0) ny--; else if (action === 1) nx++; else if (action === 2) ny++; else if (action === 3) nx--;
+
+                        // Stop si mur ou bord
+                        if (nx < 0 || ny < 0 || nx >= size || ny >= size || app.state.obstacles.has(`${nx},${ny}`)) break;
+
+                        // Gestion visuelle portail
+                        const nk = `${nx},${ny}`;
+                        if (app.state.portals.has(nk)) {
+                            // Tracer jusqu'à l'entrée
+                            ctx.lineTo(nx * w + w/2, ny * h + h/2);
+                            
+                            // Sauter à la sortie (visuel)
+                            const portals = Array.from(app.state.portals).filter(p => p !== nk);
+                            if (portals.length > 0) {
+                                const [px, py] = portals[0].split(',').map(Number);
+                                ctx.moveTo(px * w + w/2, py * h + h/2);
+                                cx = px; cy = py;
+                                iter++;
+                                continue;
+                            } else break;
+                        }
+
+                        ctx.lineTo(nx * w + w/2, ny * h + h/2);
+                        cx = nx; cy = ny;
+                        iter++;
+                    }
+
+                    ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+                    ctx.lineWidth = Math.max(2, w * 0.15);
+                    ctx.strokeStyle = '#00ff88'; // Couleur néon vert
+                    ctx.shadowColor = '#00ff88'; ctx.shadowBlur = 10;
+                    ctx.stroke();
+                },
+
+                updatePathCanvasSize() {
+                    const grid = document.getElementById('grid');
+                    if (this.pathCanvas && grid) {
+                        this.pathCanvas.width = grid.clientWidth;
+                        this.pathCanvas.height = grid.clientHeight;
+                    }
+                },
+                updatePathCanvas() { this.updatePathCanvasSize(); this.drawBestPath(); },
+
+                updateStats() {
+                    document.getElementById('val-ep').innerText = app.state.episode;
+                    document.getElementById('val-steps').innerText = app.state.steps;
+                    document.getElementById('val-reward').innerText = app.state.reward;
+                    const rate = app.state.episode > 0 ? ((app.state.wins / app.state.episode) * 100).toFixed(0) : 0;
+                    document.getElementById('val-success').innerText = rate + "%";
+                    
+                    // Calcul stats globales
+                    const history = app.state.history;
+                    if(history.length > 0) {
+                         const avgS = history.reduce((a,b)=>a+b.s, 0) / history.length;
+                         const avgR = history.reduce((a,b)=>a+b.r, 0) / history.length;
+                         document.getElementById('val-avg-steps').innerText = avgS.toFixed(1);
+                         document.getElementById('val-avg-reward').innerText = avgR.toFixed(1);
+                    }
+                },
+
+                toggleSidebar() { document.getElementById('sidebar').classList.toggle('collapsed'); },
+                toggleGraph() { document.getElementById('hud-container').classList.toggle('collapsed'); },
+                
+                toggleViewMode(mode) {
+                    if (app.state.viewMode === mode) app.state.viewMode = 'q';
+                    else app.state.viewMode = mode;
+                    
+                    // Gestion boutons actifs
+                    document.getElementById('t-policy').classList.toggle('active', app.state.viewMode === 'policy');
+                    document.getElementById('t-heatmap').classList.toggle('active', app.state.viewMode === 'heatmap');
+                    
+                    const labels = { 'policy': 'Vue Politique', 'heatmap': 'Vue Heatmap', 'q': 'Vue Normale' };
+                    app.ui.showToast(labels[app.state.viewMode]);
+                    this.updateCellVisuals();
+                },
+
+                showToast(msg) {
+                    const t = document.getElementById('toast');
+                    t.querySelector('span').innerText = msg;
+                    t.classList.add('visible');
+                    setTimeout(() => t.classList.remove('visible'), 2000);
+                },
+
+                showMath(oldQ, r, maxNext, newVal) {
+                    const el = document.getElementById('math-display');
+                    // Utilisation de spans colorés pour la lisibilité de l'équation
+                    const html = `
+                        <span style="color:#94a3b8">Q</span> ← 
+                        <span style="color:#94a3b8">${oldQ.toFixed(2)}</span> + 
+                        <span style="color:#ec4899">${app.config.alpha}</span> (
+                        <span style="color:#10b981">${r}</span> + 
+                        <span style="color:#6366f1">${app.config.gamma}</span> × 
+                        <span style="color:#f59e0b">${maxNext.toFixed(2)}</span> - 
+                        <span style="color:#94a3b8">${oldQ.toFixed(2)}</span>
+                        ) = <b>${newVal.toFixed(2)}</b>
+                        <div class="math-tooltip">
+                            <div class="mt-row"><span class="mt-key" style="color:#ec4899">Alpha (α)</span> Apprentissage</div>
+                            <div class="mt-row"><span class="mt-key" style="color:#10b981">Reward (R)</span> Récompense immédiate</div>
+                            <div class="mt-row"><span class="mt-key" style="color:#6366f1">Gamma (γ)</span> Importance futur</div>
+                            <div class="mt-row"><span class="mt-key" style="color:#f59e0b">Max Q</span> Meilleure estimation future</div>
+                        </div>
+                    `;
+                    el.innerHTML = html;
+                    el.classList.add('visible');
+                    clearTimeout(app.core.mathTimer);
+                    app.core.mathTimer = setTimeout(() => el.classList.remove('visible'), 3000);
+                },
+                
+                setupTouchSliders() {
+                    const sliders = [
+                        {id:'ts-speed', param:'speed', min:0, max:100},
+                        {id:'ts-epsilon', param:'epsilon', min:0, max:1},
+                        {id:'ts-alpha', param:'alpha', min:0, max:1},
+                        {id:'ts-gamma', param:'gamma', min:0, max:1}
+                    ];
+                    sliders.forEach(s => {
+                        const el = document.getElementById(s.id);
+                        const handle = (e) => {
+                            e.preventDefault();
+                            const rect = el.getBoundingClientRect();
+                            const cx = e.touches ? e.touches[0].clientX : e.clientX;
+                            let pct = (cx - rect.left) / rect.width;
+                            pct = Math.max(0, Math.min(1, pct));
+                            const val = s.min + pct * (s.max - s.min);
+                            
+                            // Update input réel
+                            const input = document.getElementById('inp-' + s.param);
+                            if(input) {
+                                input.value = val;
+                                app.config.updateFromInput(input);
+                            }
+                        };
+                        el.addEventListener('mousedown', (e) => { handle(e); document.addEventListener('mousemove', handle); document.addEventListener('mouseup', () => document.removeEventListener('mousemove', handle), {once:true}); });
+                        el.addEventListener('touchmove', handle, {passive:false});
+                    });
+                },
+                
+                updateTactile(param, val) {
+                    const el = document.getElementById('ts-' + param);
+                    if(!el) return;
+                    const fill = el.querySelector('.ts-fill');
+                    const txt = el.querySelector('.ts-val-disp');
+                    
+                    let pct = 0; let disp = "";
+                    if (param === 'speed') {
+                        pct = val; disp = val > 85 ? "TURBO" : val + "%";
+                    } else {
+                        pct = val * 100; disp = parseFloat(val).toFixed(2);
+                    }
+                    fill.style.width = pct + "%";
+                    txt.innerText = disp;
+                }
+            },
+
+            // --- MODULE TOOLS : Outils d'édition ---
+            tools: {
+                setTool(t) {
+                    app.state.tool = t;
+                    document.querySelectorAll('.tool-btn').forEach(b => b.classList.remove('active'));
+                    document.getElementById('t-' + t).classList.add('active');
+                    
+                    // Gestion modes vues vs outils
+                    if (['view', 'policy', 'heatmap'].includes(t)) {
+                        // Le bouton a déjà géré la vue, ici on reset si c'est "view" (curseur simple)
+                        if(t === 'view') { app.state.viewMode = 'q'; app.ui.updateCellVisuals(); }
+                    } else {
+                        app.state.viewMode = 'q'; // Reset vue si on édite
+                        app.ui.updateCellVisuals();
+                        
+                        const labels = {
+                            wall: 'Mur', mud: 'Boue', ice: 'Glace', portal: 'Portail',
+                            goal: 'Objectif', start: 'Départ', eraser: 'Gomme'
+                        };
+                        app.ui.showToast(labels[t] + ' sélectionné');
+                    }
+                    this.closeGoalEditor();
+                },
+
+                applyTool(x, y) {
+                    const k = `${x},${y}`;
+                    const t = app.state.tool;
+
+                    // Si curseur sur un Goal -> Ouvrir éditeur
+                    if (t === 'view' && app.state.goals.has(k)) {
+                        this.openGoalEditor(x, y);
+                        return;
+                    }
+                    this.closeGoalEditor();
+
+                    // Nettoyer la cellule avant d'appliquer (sauf si eraser)
+                    const clear = () => {
+                        app.state.obstacles.delete(k); app.state.goals.delete(k);
+                        app.state.mud.delete(k); app.state.ice.delete(k); app.state.portals.delete(k);
+                    };
+
+                    if (t === 'wall') { if(!app.state.obstacles.has(k)) { clear(); app.state.obstacles.add(k); } }
+                    else if (t === 'goal') { if(!app.state.goals.has(k)) { clear(); app.state.goals.set(k, app.config.goalReward); } }
+                    else if (t === 'mud') { if(!app.state.mud.has(k)) { clear(); app.state.mud.add(k); } }
+                    else if (t === 'ice') { if(!app.state.ice.has(k)) { clear(); app.state.ice.add(k); } }
+                    else if (t === 'portal') { if(!app.state.portals.has(k)) { clear(); app.state.portals.add(k); } }
+                    else if (t === 'start') {
+                        app.state.start = {x, y}; clear();
+                        if(!app.state.running) { app.state.pos = {x,y}; app.ui.moveAgentVisual(); }
+                    }
+                    else if (t === 'eraser') { clear(); app.state.q[k] = [0,0,0,0]; }
+
+                    app.ui.updateCellVisuals();
+                    app.ui.updateSingleCellQ(x, y);
+                    app.ui.drawBestPath();
+                },
+
+                openGoalEditor(x, y) {
+                    const k = `${x},${y}`;
+                    app.state.editingGoal = k;
+                    const val = app.state.goals.get(k);
+                    
+                    const ed = document.getElementById('goal-editor');
+                    document.getElementById('ge-slider').value = val;
+                    document.getElementById('ge-val').innerText = val;
+                    
+                    // Positionnement contextuel
+                    const cell = document.getElementById(`c-${x}-${y}`);
+                    const rect = cell.getBoundingClientRect();
+                    const w = 180, h = 80;
+                    
+                    let left = rect.left + (rect.width/2) - (w/2);
+                    let top = rect.top - h - 10;
+                    // Garde-fou écran
+                    if(left < 10) left = 10;
+                    if(top < 10) top = rect.bottom + 10;
+                    
+                    ed.style.left = left + 'px'; ed.style.top = top + 'px';
+                    ed.style.display = 'flex';
+                },
+                closeGoalEditor() { document.getElementById('goal-editor').style.display = 'none'; app.state.editingGoal = null; },
+                updateGoalValue(v) {
+                    if(app.state.editingGoal) {
+                        app.state.goals.set(app.state.editingGoal, parseInt(v));
+                        document.getElementById('ge-val').innerText = v;
+                        app.ui.drawBestPath();
+                    }
+                }
+            },
+
+            // --- MODULE IO : Import/Export ---
+            io: {
+                export() {
+                    const data = {
+                        config: app.config,
+                        state: {
+                            ...app.state,
+                            goals: Array.from(app.state.goals),
+                            obstacles: Array.from(app.state.obstacles),
+                            mud: Array.from(app.state.mud),
+                            ice: Array.from(app.state.ice),
+                            portals: Array.from(app.state.portals),
+                            running: false, history: []
+                        }
+                    };
+                    const blob = new Blob([JSON.stringify(data)], {type:'application/json'});
+                    const a = document.createElement('a');
+                    a.href = URL.createObjectURL(blob);
+                    a.download = `qlab-save-${Date.now()}.json`;
+                    a.click();
+                },
+                import(input) {
+                    const f = input.files[0];
+                    if(!f) return;
+                    const r = new FileReader();
+                    r.onload = e => {
+                        try {
+                            const d = JSON.parse(e.target.result);
+                            app.config = {...app.config, ...d.config};
+                            app.state = {
+                                ...app.state,
+                                ...d.state,
+                                goals: new Map(d.state.goals),
+                                obstacles: new Set(d.state.obstacles),
+                                mud: new Set(d.state.mud),
+                                ice: new Set(d.state.ice),
+                                portals: new Set(d.state.portals)
+                            };
+                            // Refresh UI
+                            document.querySelectorAll('input').forEach(i => app.config.updateFromInput(i));
+                            app.core.resize(app.config.size);
+                            // Restore Q values after resize wipe
+                            app.state.q = d.state.q;
+                            app.ui.renderGrid();
+                        } catch(err) { alert('Fichier corrompu ou version incompatible.'); }
+                    };
+                    r.readAsText(f);
+                }
+            },
+
+            // --- MODULE CHART : Visualisation ---
+            chart: {
+                instance: null,
+                config: { metricIndex: 0, smoothing: 1, metrics: [
+                    {id:'r', label:'Score (Reward)', color:'#6366f1'},
+                    {id:'s', label:'Nombre de Pas', color:'#f59e0b'},
+                    {id:'w', label:'Taux Succès %', color:'#10b981'}
+                ]},
+                init() {
+                    const ctx = document.getElementById('chart').getContext('2d');
+                    Chart.defaults.font.family = "'JetBrains Mono', monospace";
+                    Chart.defaults.color = '#64748b';
+                    this.instance = new Chart(ctx, {
+                        type: 'line',
+                        data: { labels: [], datasets: [] },
+                        options: {
+                            responsive: true, maintainAspectRatio: false,
+                            plugins: { legend: { display: false } },
+                            scales: { 
+                                x: { display: false }, 
+                                y: { grid: { color: 'rgba(255,255,255,0.05)' } } 
+                            },
+                            animation: false,
+                            elements: { point: { radius: 0 } }
+                        }
+                    });
+                },
+                update() {
+                    if(!this.instance || app.state.history.length === 0) return;
+                    const m = this.config.metrics[this.config.metricIndex];
+                    let data = [];
+                    
+                    if(m.id === 'r') data = app.state.history.map(h => h.r);
+                    else if(m.id === 's') data = app.state.history.map(h => h.s);
+                    else if(m.id === 'w') data = app.state.history.map(h => h.w * 100);
+
+                    // Moyenne mobile (Lissage)
+                    if(this.config.smoothing > 1) {
+                        const smoothed = [];
+                        for(let i=0; i<data.length; i++) {
+                            const start = Math.max(0, i - this.config.smoothing + 1);
+                            const subset = data.slice(start, i+1);
+                            smoothed.push(subset.reduce((a,b)=>a+b,0) / subset.length);
+                        }
+                        data = smoothed;
+                    }
+                    
+                    this.instance.data.labels = app.state.history.map(h => h.ep);
+                    this.instance.data.datasets = [{
+                        label: m.label,
+                        data: data,
+                        borderColor: m.color,
+                        borderWidth: 2,
+                        tension: 0.3
+                    }];
+                    this.instance.update('none'); // Mode performant
+                    document.getElementById('lbl-metric').innerText = m.label;
+                },
+                prevMetric() { this.config.metricIndex = (this.config.metricIndex - 1 + 3) % 3; this.update(); },
+                nextMetric() { this.config.metricIndex = (this.config.metricIndex + 1) % 3; this.update(); },
+                updateSmoothing(v) { this.config.smoothing = parseInt(v); this.update(); },
+                reset() { if(this.instance) { this.instance.data.labels = []; this.instance.data.datasets = []; this.instance.update(); } }
+            }
+        };
+
+        // Point d'entrée
+        window.onload = () => app.init();
+    </script>
+</body>
+</html>
